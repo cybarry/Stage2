@@ -1,4 +1,5 @@
 // src/controllers/countriesController.js
+import sequelize from "../config/database.js";
 import Country from "../models/countryModel.js";
 import Metadata from "../models/metadataModel.js";
 import { refreshAllCountries } from "../services/refreshService.js";

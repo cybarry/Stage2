@@ -8,94 +8,192 @@ import sequelize from "../config/database.js";
 
 export async function refreshAllCountries() {
   const countriesUrl = "https://restcountries.com/v2/all?fields=name,capital,region,population,flag,currencies";
+  //const countriesUrl = "https://restcountries123.com/v2/all";
   const ratesUrl = "https://open.er-api.com/v6/latest/USD";
 
+
+
+//   try {
+//     const [countriesRes, ratesRes] = await Promise.all([
+//       axios.get(countriesUrl, { timeout: 15000 }),
+//       axios.get(ratesUrl, { timeout: 15000 }),
+//     ]);
+
+//     if (countriesRes.status !== 200 || ratesRes.status !== 200) {
+//       throw {
+//         status: 503,
+//         message: "External data source unavailable",
+//         details: "Could not fetch data from one or both APIs",
+//       };
+//     }
+
+
+//     const countriesData = countriesRes.data;
+//     const ratesData = ratesRes.data?.rates || {};
+
+//     const savedCountries = [];
+
+//     // Transaction ensures consistency
+//     await sequelize.transaction(async (t) => {
+//       for (const c of countriesData) {
+//         const name = c.name?.trim();
+//         const capital = c.capital || null;
+//         const region = c.region || null;
+//         const population = c.population || 0;
+//         const flag_url = c.flag || null;
+
+//         // Handle currencies
+//         const currency_code =
+//           Array.isArray(c.currencies) && c.currencies.length > 0
+//             ? c.currencies[0].code
+//             : null;
+
+//         const exchange_rate =
+//           currency_code && ratesData[currency_code]
+//             ? ratesData[currency_code]
+//             : null;
+
+//         // Compute estimated_gdp
+//         let estimated_gdp = null;
+//         if (exchange_rate && population) {
+//           const multiplier = Math.floor(Math.random() * (2000 - 1000 + 1)) + 1000;
+//           estimated_gdp = (population * multiplier) / exchange_rate;
+//         } else if (currency_code === null) {
+//           estimated_gdp = 0;
+//         }
+
+//         const last_refreshed_at = new Date();
+
+//         const existing = await Country.findOne({
+//           where: sequelize.where(
+//             sequelize.fn("lower", sequelize.col("name")),
+//             name.toLowerCase()
+//           ),
+//           transaction: t,
+//         });
+
+//         if (existing) {
+//           await existing.update(
+//             {
+//               capital,
+//               region,
+//               population,
+//               currency_code,
+//               exchange_rate,
+//               estimated_gdp,
+//               flag_url,
+//               last_refreshed_at,
+//             },
+//             { transaction: t }
+//           );
+//           savedCountries.push(existing);
+//         } else {
+//           const newCountry = await Country.create(
+//             {
+//               name,
+//               capital,
+//               region,
+//               population,
+//               currency_code,
+//               exchange_rate,
+//               estimated_gdp,
+//               flag_url,
+//               last_refreshed_at,
+//             },
+//             { transaction: t }
+//           );
+//           savedCountries.push(newCountry);
+//         }
+//       }
+
+//       // Update metadata
+//       const timestamp = new Date().toISOString();
+//       await Metadata.upsert(
+//         { key: "last_refreshed_at", value: timestamp },
+//         { transaction: t }
+//       );
+
+//       // Generate summary image
+//       const total = savedCountries.length;
+//       const top5 = savedCountries
+//         .filter((c) => c.estimated_gdp)
+//         .sort((a, b) => b.estimated_gdp - a.estimated_gdp)
+//         .slice(0, 5)
+//         .map((c) => ({
+//           name: c.name,
+//           estimated_gdp: c.estimated_gdp,
+//         }));
+
+//       const outPath = path.resolve(process.env.CACHE_DIR || "./cache", "summary.png");
+//       await createSummaryImage({ total, top5, timestamp, outPath });
+//     });
+
+//     return { message: "Countries data fetched and saved successfully", count: savedCountries.length };
+//   } catch (err) {
+//     if (err.status === 503) throw err;
+//     console.error("❌ Refresh failed:", err.message);
+//     throw { status: 500, message: "Internal server error", details: err.message };
+//   }
+// }
+
+
+
+
+
   try {
+    // 🧠 Fetch both external APIs in parallel
     const [countriesRes, ratesRes] = await Promise.all([
       axios.get(countriesUrl, { timeout: 15000 }),
       axios.get(ratesUrl, { timeout: 15000 }),
     ]);
 
+    // 🚨 Handle unexpected response codes
     if (countriesRes.status !== 200 || ratesRes.status !== 200) {
-      throw {
-        status: 503,
-        message: "External data source unavailable",
-        details: "Could not fetch data from one or both APIs",
-      };
+      throw { status: 503, message: "External data source unavailable", details: "Could not fetch data from one or both APIs" };
     }
 
     const countriesData = countriesRes.data;
     const ratesData = ratesRes.data?.rates || {};
-
     const savedCountries = [];
 
-    // Transaction ensures consistency
+    // 💾 Use transaction for consistency
     await sequelize.transaction(async (t) => {
       for (const c of countriesData) {
         const name = c.name?.trim();
+        if (!name) continue;
+
         const capital = c.capital || null;
         const region = c.region || null;
         const population = c.population || 0;
         const flag_url = c.flag || null;
+        const currency_code = Array.isArray(c.currencies) && c.currencies.length > 0 ? c.currencies[0].code : null;
 
-        // Handle currencies
-        const currency_code =
-          Array.isArray(c.currencies) && c.currencies.length > 0
-            ? c.currencies[0].code
-            : null;
-
-        const exchange_rate =
-          currency_code && ratesData[currency_code]
-            ? ratesData[currency_code]
-            : null;
-
-        // Compute estimated_gdp
+        const exchange_rate = currency_code && ratesData[currency_code] ? ratesData[currency_code] : null;
         let estimated_gdp = null;
+
         if (exchange_rate && population) {
           const multiplier = Math.floor(Math.random() * (2000 - 1000 + 1)) + 1000;
           estimated_gdp = (population * multiplier) / exchange_rate;
-        } else if (currency_code === null) {
+        } else if (!currency_code) {
           estimated_gdp = 0;
         }
 
         const last_refreshed_at = new Date();
 
         const existing = await Country.findOne({
-          where: sequelize.where(
-            sequelize.fn("lower", sequelize.col("name")),
-            name.toLowerCase()
-          ),
+          where: sequelize.where(sequelize.fn("lower", sequelize.col("name")), name.toLowerCase()),
           transaction: t,
         });
 
         if (existing) {
           await existing.update(
-            {
-              capital,
-              region,
-              population,
-              currency_code,
-              exchange_rate,
-              estimated_gdp,
-              flag_url,
-              last_refreshed_at,
-            },
+            { capital, region, population, currency_code, exchange_rate, estimated_gdp, flag_url, last_refreshed_at },
             { transaction: t }
           );
           savedCountries.push(existing);
         } else {
           const newCountry = await Country.create(
-            {
-              name,
-              capital,
-              region,
-              population,
-              currency_code,
-              exchange_rate,
-              estimated_gdp,
-              flag_url,
-              last_refreshed_at,
-            },
+            { name, capital, region, population, currency_code, exchange_rate, estimated_gdp, flag_url, last_refreshed_at },
             { transaction: t }
           );
           savedCountries.push(newCountry);
@@ -104,10 +202,7 @@ export async function refreshAllCountries() {
 
       // Update metadata
       const timestamp = new Date().toISOString();
-      await Metadata.upsert(
-        { key: "last_refreshed_at", value: timestamp },
-        { transaction: t }
-      );
+      await Metadata.upsert({ key: "last_refreshed_at", value: timestamp }, { transaction: t });
 
       // Generate summary image
       const total = savedCountries.length;
@@ -115,19 +210,27 @@ export async function refreshAllCountries() {
         .filter((c) => c.estimated_gdp)
         .sort((a, b) => b.estimated_gdp - a.estimated_gdp)
         .slice(0, 5)
-        .map((c) => ({
-          name: c.name,
-          estimated_gdp: c.estimated_gdp,
-        }));
+        .map((c) => ({ name: c.name, estimated_gdp: c.estimated_gdp }));
 
       const outPath = path.resolve(process.env.CACHE_DIR || "./cache", "summary.png");
       await createSummaryImage({ total, top5, timestamp, outPath });
     });
 
     return { message: "Countries data fetched and saved successfully", count: savedCountries.length };
+
   } catch (err) {
+    // 🩵 Handle Axios errors (network or timeout)
+    if (err.isAxiosError) {
+      console.error("🌐 External API error:", err.message);
+      throw { status: 503, message: "External data source unavailable", details: err.message };
+    }
+
+    // 🩵 Preserve already formatted 503 errors
     if (err.status === 503) throw err;
-    console.error("❌ Refresh failed:", err.message);
-    throw { status: 500, message: "Internal server error", details: err.message };
+
+    // 🩵 Log & throw 500 for anything else
+    console.error("❌ Refresh failed:", err.message || err);
+    throw { status: 500, message: "Internal server error", details: err.message || err };
   }
 }
+

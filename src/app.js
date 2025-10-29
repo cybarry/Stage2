@@ -12,6 +12,23 @@ app.use(express.json());
 
 app.use('/countries', countryRoutes);
 
+// app.use((err, req, res, next) => {
+//   // Normalise error structure
+//   const status = err.status || 500;
+//   const message = err.message || "Internal server error";
+//   const details = err.details || (typeof err === "object" ? JSON.stringify(err) : null);
+
+//   console.error("🔥 Error:", message, details);
+
+//   // Always return JSON
+//   res.status(status).json({
+//     status,
+//     message,
+//     details,
+//   });
+// });
+
+
 // GET /status as top-level route if you prefer:
 app.get("/status", async (req, res, next) => {
   try {
