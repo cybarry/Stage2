@@ -1,0 +1,27 @@
+{
+  "name": "stagetwo",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "HNG Stage-2: Country-Currency API",
+  "main": "src/app.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js"
+  },
+  "author": "cybarry",
+  "license": "ISC",
+  "devDependencies": {
+    "eslint": "^9.38.0",
+    "nodemon": "^3.1.10"
+  },
+  "dependencies": {
+    "axios": "^1.13.1",
+    "canvas": "^3.2.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "mariadb": "^3.4.5",
+    "mongoose": "^8.19.2",
+    "mysql2": "^3.15.3",
+    "sequelize": "^6.37.7"
+  }
+}
